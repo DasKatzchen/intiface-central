@@ -5,6 +5,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:intiface_central/bloc/engine/engine_control_bloc.dart';
 import 'package:intiface_central/widget/control_widget.dart';
 
+import '../helpers/fake_blocs.dart';
 import '../helpers/mocks.dart';
 import '../helpers/pump_app.dart';
 
@@ -105,6 +106,17 @@ void main() {
       await pumpApp(tester, child: const ControlWidget());
       expect(find.text('Server Address:'), findsOneWidget);
       expect(find.text('ws://localhost:12345'), findsOneWidget);
+    });
+
+    testWidgets('shows remote engine host in remote mode', (tester) async {
+      final config = MockIntifaceConfigurationCubit();
+      stubConfigurationCubit(
+        config,
+        useRemoteEngine: true,
+        remoteEngineAddress: 'ws://192.168.1.50:12346',
+      );
+      await pumpApp(tester, child: const ControlWidget(), configCubit: config);
+      expect(find.text('ws://192.168.1.50:12345 (remote)'), findsOneWidget);
     });
 
     testWidgets('shows port in use dialog on engine error', (tester) async {

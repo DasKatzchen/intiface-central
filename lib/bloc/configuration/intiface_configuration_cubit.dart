@@ -169,6 +169,21 @@ class AppModeState extends IntifaceConfigurationState {
   AppModeState(this.value);
 }
 
+class UseRemoteEngineState extends IntifaceConfigurationState {
+  final bool value;
+  UseRemoteEngineState(this.value);
+}
+
+class RemoteEngineAddressState extends IntifaceConfigurationState {
+  final String value;
+  RemoteEngineAddressState(this.value);
+}
+
+class RemoteEngineTokenState extends IntifaceConfigurationState {
+  final String value;
+  RemoteEngineTokenState(this.value);
+}
+
 class RestoreWindowLocation extends IntifaceConfigurationState {
   final bool value;
   RestoreWindowLocation(this.value);
@@ -283,6 +298,11 @@ class IntifaceConfigurationCubit extends Cubit<IntifaceConfigurationState> {
 
     restLocalPort = _prefs.getInt("restLocalPort") ?? 3000;
     allowExperimentalRestServer = _prefs.getBool("allowExperimentalRestServer") ?? false;
+
+    // Remote engine (headless intiface-remote-daemon, e.g. on a Raspberry Pi).
+    useRemoteEngine = _prefs.getBool("useRemoteEngine") ?? false;
+    remoteEngineAddress = _prefs.getString("remoteEngineAddress") ?? "";
+    remoteEngineToken = _prefs.getString("remoteEngineToken") ?? "";
     // Default for appMode built into getter, since it also requires a type conversion.
   }
 
@@ -559,6 +579,28 @@ class IntifaceConfigurationCubit extends Cubit<IntifaceConfigurationState> {
     emit(AllowExperimentalRestServer(value));
   }
 
+  bool get useRemoteEngine => _prefs.getBool("useRemoteEngine")!;
+  set useRemoteEngine(bool value) {
+    _prefs.setBool("useRemoteEngine", value);
+    emit(UseRemoteEngineState(value));
+  }
+
+  String get remoteEngineAddress => _prefs.getString("remoteEngineAddress")!;
+  set remoteEngineAddress(String value) {
+    _prefs.setString("remoteEngineAddress", value);
+    emit(RemoteEngineAddressState(value));
+  }
+
+  String get remoteEngineToken => _prefs.getString("remoteEngineToken")!;
+  set remoteEngineToken(String value) {
+    _prefs.setString("remoteEngineToken", value);
+    emit(RemoteEngineTokenState(value));
+  }
+
+  /// Serial, Lovense dongles, gamepads and Lovense Connect need a desktop
+  /// host. In remote mode the host is the Pi (Linux), whatever Central runs on.
+  bool get engineHostSupportsDesktopManagers => isDesktop() || useRemoteEngine;
+
   Future<EngineOptionsExternal> getEngineOptions() async {
     String? deviceConfigFile;
     if (await IntifacePaths.deviceConfigFile.exists()) {
@@ -574,17 +616,18 @@ class IntifaceConfigurationCubit extends Cubit<IntifaceConfigurationState> {
       serverName: serverName,
       deviceConfigJson: deviceConfigFile,
       userDeviceConfigJson: userDeviceConfigFile,
-      userDeviceConfigPath: IntifacePaths.userDeviceConfigFile.path,
+      // The Pi keeps its own copy of the user config; a local path means nothing there.
+      userDeviceConfigPath: useRemoteEngine ? null : IntifacePaths.userDeviceConfigFile.path,
       websocketListenAddress:
           "${websocketServerAllInterfaces ? "0.0.0.0" : "127.0.0.1"}:$websocketServerPort",
       frontendInProcessChannel: isMobile(),
       maxPingTime: serverMaxPingTime,
       useBluetoothLe: useBluetoothLE,
-      useSerialPort: isDesktop() ? useSerialPort : false,
-      useLovenseDongleSerial: isDesktop() ? useLovenseSerialDongle : false,
-      useLovenseDongleHid: isDesktop() ? useLovenseHIDDongle : false,
-      useSdlGamepad: isDesktop() ? useSdlGamepad : false,
-      useLovenseConnect: isDesktop() ? useLovenseConnectService : false,
+      useSerialPort: engineHostSupportsDesktopManagers ? useSerialPort : false,
+      useLovenseDongleSerial: engineHostSupportsDesktopManagers ? useLovenseSerialDongle : false,
+      useLovenseDongleHid: engineHostSupportsDesktopManagers ? useLovenseHIDDongle : false,
+      useSdlGamepad: engineHostSupportsDesktopManagers ? useSdlGamepad : false,
+      useLovenseConnect: engineHostSupportsDesktopManagers ? useLovenseConnectService : false,
       useDeviceWebsocketServer: useDeviceWebsocketServer,
       useSimulatedDevices: useSimulatedDevices,
       crashMainThread: false,

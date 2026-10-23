@@ -39,6 +39,10 @@ class UserDeviceConfigurationCubit extends Cubit<UserDeviceConfigurationState> {
   List<String> get protocols => _protocols;
   Object? get createError => _createError;
 
+  /// Called with the saved user config JSON after every local edit. The app
+  /// uses it to push edits to a remote engine.
+  void Function(String json)? onConfigSaved;
+
   static Future<UserDeviceConfigurationCubit> create() async {
     var cubit = UserDeviceConfigurationCubit._();
     await cubit.loadConfig();
@@ -199,6 +203,28 @@ class UserDeviceConfigurationCubit extends Cubit<UserDeviceConfigurationState> {
   Future<void> _saveConfigFile() async {
     var configStr = await getUserConfigStr();
     await IntifacePaths.userDeviceConfigFile.writeAsString(configStr);
+    await update();
+    onConfigSaved?.call(configStr);
+  }
+
+  /// Adopt a user config received from a remote engine (the Pi's copy is
+  /// authoritative while connected, since that is where devices are found).
+  /// Does not call [onConfigSaved], so it never echoes back to the Pi.
+  Future<void> applyRemoteConfig(String json) async {
+    String? deviceConfig;
+    if (IntifacePaths.deviceConfigFile.existsSync()) {
+      deviceConfig = IntifacePaths.deviceConfigFile.readAsStringSync();
+    }
+    try {
+      await setupDeviceConfigurationManager(
+        baseConfig: deviceConfig,
+        userConfig: json,
+      );
+    } catch (e) {
+      logError("Ignoring invalid user device config from remote engine: $e");
+      return;
+    }
+    await IntifacePaths.userDeviceConfigFile.writeAsString(json);
     await update();
   }
 }

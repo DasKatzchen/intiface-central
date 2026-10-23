@@ -7,6 +7,7 @@ import 'package:intiface_central/bloc/util/navigation_cubit.dart';
 import 'package:flutter_settings_ui/flutter_settings_ui.dart';
 import 'package:intiface_central/widget/settings_version_widget.dart';
 import 'package:intiface_central/widget/settings_app_widget.dart';
+import 'package:intiface_central/widget/settings_remote_engine_widget.dart';
 import 'package:intiface_central/widget/settings_reset_widget.dart';
 import 'package:intiface_central/util/intiface_util.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -43,6 +44,7 @@ class SettingPage extends StatelessWidget {
     tiles.addAll([
       SettingsVersionWidget(cubit: cubit, engineIsRunning: engineIsRunning),
       SettingsAppWidget(cubit: cubit),
+      SettingsRemoteEngineWidget(cubit: cubit, engineIsRunning: engineIsRunning),
       SettingsSection(
         title: _settingsText("Experimental Features"),
         tiles: [

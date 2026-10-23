@@ -19,7 +19,10 @@ import 'package:intiface_central/bloc/device_configuration/user_device_configura
 import 'package:intiface_central/bloc/engine/engine_control_bloc.dart';
 import 'package:intiface_central/bloc/engine/engine_repository.dart';
 import 'package:intiface_central/bloc/engine/foreground_task_library_engine_provider.dart';
+import 'package:intiface_central/bloc/engine/engine_provider.dart';
 import 'package:intiface_central/bloc/engine/library_engine_provider.dart';
+import 'package:intiface_central/bloc/engine/remote_engine_provider.dart';
+import 'package:intiface_central/bloc/engine/switching_engine_provider.dart';
 import 'package:intiface_central/bloc/update/github_update_provider.dart';
 import 'package:intiface_central/bloc/update/update_bloc.dart';
 import 'package:intiface_central/bloc/update/update_repository.dart';
@@ -85,6 +88,8 @@ class IntifaceCentralApp extends StatelessWidget with WindowListener, TrayListen
 
   // Stored so tray listener callbacks (outside widget tree) can access BLoC/config.
   EngineControlBloc? _engineControlBloc;
+  RemoteEngineProvider? _remoteProvider;
+  SwitchingEngineProvider? _switchingProvider;
   IntifaceConfigurationCubit? _configCubit;
 
   // Cache the buildApp() future to prevent multiple concurrent initializations.
@@ -196,7 +201,10 @@ class IntifaceCentralApp extends StatelessWidget with WindowListener, TrayListen
           }
         }
       case 'quit':
-        if (_engineControlBloc?.isRunning ?? false) {
+        if (_switchingProvider?.remoteActive ?? false) {
+          // Leave the remote engine running on the Pi; just disconnect.
+          await _remoteProvider?.detach();
+        } else if (_engineControlBloc?.isRunning ?? false) {
           _engineControlBloc!.add(EngineControlEventStop());
           await Future.delayed(const Duration(milliseconds: 1500));
         }
@@ -373,14 +381,26 @@ class IntifaceCentralApp extends StatelessWidget with WindowListener, TrayListen
 
     var networkCubit = await NetworkInfoCubit.create();
 
-    EngineRepository engineRepo;
+    EngineProvider localProvider;
     if (isDesktop()) {
-      engineRepo = EngineRepository(LibraryEngineProvider());
+      localProvider = LibraryEngineProvider();
     } else {
-      engineRepo = configCubit.useForegroundProcess
-          ? EngineRepository(ForegroundTaskLibraryEngineProvider())
-          : EngineRepository(LibraryEngineProvider());
+      localProvider = configCubit.useForegroundProcess ? ForegroundTaskLibraryEngineProvider() : LibraryEngineProvider();
     }
+    // Remote mode drives a headless engine (intiface-remote-daemon) instead,
+    // e.g. on a Raspberry Pi. Chosen per start, so no restart is needed.
+    var remoteProvider = RemoteEngineProvider(
+      connectionInfo: () =>
+          RemoteEngineConnectionInfo(address: configCubit.remoteEngineAddress, token: configCubit.remoteEngineToken),
+    );
+    _remoteProvider = remoteProvider;
+    var switchingProvider = SwitchingEngineProvider(
+      local: localProvider,
+      remote: remoteProvider,
+      useRemote: () => configCubit.useRemoteEngine,
+    );
+    _switchingProvider = switchingProvider;
+    var engineRepo = EngineRepository(switchingProvider);
 
     var assetCubit = await AssetCubit.create();
 
@@ -460,6 +480,15 @@ class IntifaceCentralApp extends StatelessWidget with WindowListener, TrayListen
     var apiLog = NativeApiLog();
 
     var userConfigCubit = await UserDeviceConfigurationCubit.create();
+
+    // Device config sync with a remote engine: the Pi's copy comes in on
+    // connect and after each device connects; local edits are pushed back.
+    remoteProvider.userConfigStream.listen((json) => userConfigCubit.applyRemoteConfig(json));
+    userConfigCubit.onConfigSaved = (json) {
+      if (switchingProvider.remoteActive && remoteProvider.isConnected) {
+        remoteProvider.pushUserConfig(json);
+      }
+    };
 
     if (options.afterUserDeviceConfigurationInit != null) {
       await options.afterUserDeviceConfigurationInit!(userConfigCubit);
@@ -570,7 +599,8 @@ class IntifaceCentralApp extends StatelessWidget with WindowListener, TrayListen
     }
 
     if (configCubit.startServerOnStartup) {
-      var btProblem = await checkBluetoothReady();
+      // Bluetooth lives on the Pi in remote mode, so don't check it here.
+      var btProblem = configCubit.useRemoteEngine ? null : await checkBluetoothReady();
       if (btProblem != null) {
         logWarning('Skipping autostart: $btProblem');
       } else {

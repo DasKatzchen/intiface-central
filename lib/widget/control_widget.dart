@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intiface_central/bloc/configuration/intiface_configuration_cubit.dart';
 import 'package:intiface_central/bloc/engine/engine_control_bloc.dart';
+import 'package:intiface_central/bloc/engine/remote_engine_provider.dart';
 import 'package:intiface_central/bloc/util/error_notifier_cubit.dart';
 import 'package:intiface_central/bloc/util/navigation_cubit.dart';
 import 'package:intiface_central/bloc/util/network_info_cubit.dart';
@@ -112,7 +113,8 @@ class ControlWidget extends StatelessWidget {
               statusMessage = "Server not running";
               statusIcon = Icons.bedtime;
               buttonAction = () async {
-                var btProblem = await checkBluetoothReady();
+                // Bluetooth is on the Pi in remote mode; nothing to check here.
+                var btProblem = configCubit.useRemoteEngine ? null : await checkBluetoothReady();
                 if (btProblem != null) {
                   if (!context.mounted) return;
                   showDialog<void>(
@@ -255,9 +257,13 @@ class ControlWidget extends StatelessWidget {
                   bloc: configCubit,
                   buildWhen: (previous, current) =>
                       current is WebsocketServerAllInterfacesState ||
-                      current is WebsocketServerPortState,
+                      current is WebsocketServerPortState ||
+                      current is UseRemoteEngineState ||
+                      current is RemoteEngineAddressState,
                   builder: (context, state) => Text(
-                    "ws://${configCubit.websocketServerAllInterfaces ? (networkCubit.ip ?? "0.0.0.0") : "localhost"}:${configCubit.websocketServerPort}",
+                    configCubit.useRemoteEngine
+                        ? "ws://${remoteEngineHost(configCubit.remoteEngineAddress)}:${configCubit.websocketServerPort} (remote)"
+                        : "ws://${configCubit.websocketServerAllInterfaces ? (networkCubit.ip ?? "0.0.0.0") : "localhost"}:${configCubit.websocketServerPort}",
                   ),
                 ),
               ]);
@@ -348,5 +354,14 @@ class ControlWidget extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+/// Host part of the configured remote engine address, for display.
+String remoteEngineHost(String address) {
+  try {
+    return normalizeRemoteEngineAddress(address).host;
+  } on FormatException {
+    return "remote engine not set";
   }
 }

@@ -1,3 +1,4 @@
+import 'package:intiface_central/util/intiface_util.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:intiface_central/bloc/configuration/intiface_configuration_cubit.dart';
 import 'package:intiface_central/bloc/device_configuration/user_device_configuration_cubit.dart';
@@ -48,6 +49,10 @@ void stubConfigurationCubit(
   int repeaterLocalPort = 12345,
   String repeaterRemoteAddress = '192.168.1.1:12345',
   String displayLogLevel = 'info',
+  bool useRemoteEngine = false,
+  String remoteEngineAddress = '',
+  String remoteEngineToken = '',
+  bool? engineHostSupportsDesktopManagers,
 }) {
   when(() => mock.state).thenReturn(IntifaceConfigurationStateNone());
   when(() => mock.stream).thenAnswer((_) => const Stream.empty());
@@ -61,6 +66,12 @@ void stubConfigurationCubit(
   when(() => mock.useSdlGamepad).thenReturn(useSdlGamepad);
   when(() => mock.useSerialPort).thenReturn(useSerialPort);
   when(() => mock.useProcessEngine).thenReturn(useProcessEngine);
+  when(() => mock.useRemoteEngine).thenReturn(useRemoteEngine);
+  when(() => mock.remoteEngineAddress).thenReturn(remoteEngineAddress);
+  when(() => mock.remoteEngineToken).thenReturn(remoteEngineToken);
+  when(
+    () => mock.engineHostSupportsDesktopManagers,
+  ).thenReturn(engineHostSupportsDesktopManagers ?? (isDesktop() || useRemoteEngine));
   when(
     () => mock.useDeviceWebsocketServer,
   ).thenReturn(useDeviceWebsocketServer);

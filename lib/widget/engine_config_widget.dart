@@ -8,7 +8,6 @@ import 'package:intiface_central/bloc/configuration/intiface_configuration_cubit
 import 'package:intiface_central/bloc/engine/engine_control_bloc.dart';
 import 'package:intiface_central/bloc/util/gui_settings_cubit.dart';
 import 'package:intiface_central/util/docs_screenshot_keys.dart';
-import 'package:intiface_central/util/intiface_util.dart';
 import 'package:flutter_settings_ui/flutter_settings_ui.dart';
 
 class EngineConfigWidget extends StatefulWidget {
@@ -213,7 +212,8 @@ class _EngineConfigWidgetState extends State<EngineConfigWidget> {
         title: _settingsText("Bluetooth LE"),
       ),
     ];
-    if (isDesktop()) {
+    // In remote mode these run on the Pi, so show them even on mobile.
+    if (cubit.engineHostSupportsDesktopManagers) {
       deviceSettings.addAll([
         SettingsTile.switchTile(
           enabled: !engineIsRunning,
@@ -244,7 +244,7 @@ class _EngineConfigWidgetState extends State<EngineConfigWidget> {
       // The Lovense HID dongle manager is unavailable on macOS; the engine
       // gates it out because SDL's bundled hidapi collides with the hidapi
       // crate there.
-      if (!Platform.isMacOS) {
+      if (!Platform.isMacOS || cubit.useRemoteEngine) {
         deviceSettings.add(
           SettingsTile.switchTile(
             enabled: !engineIsRunning,
@@ -354,7 +354,7 @@ class _EngineConfigWidgetState extends State<EngineConfigWidget> {
       ),
     ];
 
-    if (!isMobile()) {
+    if (cubit.engineHostSupportsDesktopManagers) {
       advancedManagers.addAll([
         SettingsTile.switchTile(
           enabled: !engineIsRunning,
