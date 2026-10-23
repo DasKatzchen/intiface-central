@@ -1,0 +1,31 @@
+[package]
+name = "intiface-remote-daemon"
+version = "0.1.0"
+edition = "2024"
+description = "Headless Intiface Engine host controlled remotely by Intiface Central"
+license = "BSD-3-Clause"
+publish = false
+
+[dependencies]
+intiface-engine = "=5.0.5"
+buttplug_server_device_config = "12.0.1"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "net", "sync", "signal", "time", "fs"] }
+tokio-tungstenite = "0.30.0"
+tokio-util = "0.7"
+futures = "0.3.34"
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0.151"
+argh = "0.1"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+
+# Statically link libdbus (used by btleplug for BlueZ) on ARM64 so the Pi
+# needs no -dev packages and cross builds need no ARM64 sysroot for it.
+[target.'cfg(all(target_os = "linux", target_arch = "aarch64"))'.dependencies]
+libdbus-sys = { version = "0.2", features = ["vendored"] }
+
+[profile.release]
+lto = "thin"
+strip = true

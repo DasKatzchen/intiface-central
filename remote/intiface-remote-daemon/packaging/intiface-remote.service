@@ -1,0 +1,26 @@
+[Unit]
+Description=Intiface Engine (headless, controlled by Intiface Central)
+Wants=bluetooth.target network-online.target
+After=bluetooth.target network-online.target
+
+[Service]
+Type=simple
+User=intiface
+Group=intiface
+# Remove --autostart to only run the engine when Central starts it.
+ExecStart=/usr/local/bin/intiface-remote-daemon --autostart
+Restart=on-failure
+RestartSec=3
+StateDirectory=intiface-remote
+Environment=RUST_LOG=info
+
+# Hardening. Bluetooth goes through BlueZ over D-Bus, serial and HID through
+# the dialout/plugdev groups set up by install.sh.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadOnlyPaths=/etc/intiface-remote
+
+[Install]
+WantedBy=multi-user.target
