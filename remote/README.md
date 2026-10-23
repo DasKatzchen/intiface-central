@@ -49,7 +49,22 @@ journalctl -u intiface-remote -f      # logs
 sudo cat /etc/intiface-remote/token   # the access token
 ```
 
-## 2. Point Central at the Pi
+## 2. Install Central
+
+- **Linux:** `flutter build linux --release`, then run
+  `build/linux/x64/release/bundle/intiface_central`.
+- **Windows:** on a Windows PC, `flutter build windows --release`, then run
+  `build\windows\x64\runner\Release\intiface_central.exe`.
+- **Android:** `flutter build apk --release` produces
+  `build/app/outputs/flutter-apk/app-release.apk`. The fork installs as a
+  separate app, **Intiface Remote** (`com.nonpolynomial.intiface_central.remote`),
+  so it can sit alongside the official Intiface Central. Without a
+  `android/key.properties` it is signed with the standard Android debug key,
+  which is fine for sideloading on your own phone (allow installs from unknown
+  sources). Sign future builds with the same key, or Android will refuse the
+  update.
+
+## 3. Point Central at the Pi
 
 In Central, open **Settings > Remote Engine (Raspberry Pi)**:
 
